@@ -85,13 +85,14 @@ const handleChunk = (
   if (options.allowHTTP) {
     if (!socket.upgraded) {
       if (headers["Upgrade"] !== "websocket") {
-        console.log("reply http");
         socket.write("HTTP/1.1 200 OK\r\n\r\nOK", () => socket.end());
         return;
       }
-      const wsKey = headers["Sec-WebSocket-Key"];
-      if (!wsKey) return console.log("no ws key");
-      console.log("upgrade ws");
+      const wsKey =
+        headers["Sec-WebSocket-Key"] ||
+        headers["Sec-Websocket-Key"] ||
+        headers["sec-websocket-key"];
+      if (!wsKey) return;
       const accepted = createHash("sha1")
         .update(wsKey + WS_MAGIC_STRING)
         .digest("base64");
