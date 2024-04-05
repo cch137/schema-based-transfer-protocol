@@ -85,8 +85,6 @@ const addTrack = (
 };
 
 const server = net.createServer((socket) => {
-  logMessage("client connected");
-
   let uid = "";
   const sid = generate64BitId(SID_LENGTH);
 
@@ -94,7 +92,7 @@ const server = net.createServer((socket) => {
     addTrack(uid, sid, type, data);
 
   socket.on("upgrade", async ({ headers, body }) => {
-    logMessage("client is upgradeted");
+    logMessage("client connected");
     const ua = headers["User-Agent"] || "unknown";
     const ip = socket.remoteAddress || "unknown";
     const _uid = (headers[":path:"] || "").substring(1);
