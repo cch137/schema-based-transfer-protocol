@@ -119,7 +119,8 @@ const server = net.createServer((socket) => {
 
   socket.on("end", () => {
     logMessage("client disconnected");
-    record("disconn");
+    if (uid) record("disconn");
+    else db.tracks.deleteMany({ sid });
   });
 });
 
