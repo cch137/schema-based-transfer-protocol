@@ -5,13 +5,14 @@ import { config as dotenv } from "dotenv";
 import tls from "tls";
 import fs from "fs";
 
-const unpackData = (array: Buffer) =>
-  JSON.parse(
-    array
-      .reverse()
-      .map((v) => ~v & 0xff)
-      .toString()
-  );
+const unpackData = (array: Buffer) => {
+  const text = array
+    .reverse()
+    .map((v) => ~v & 0xff)
+    .toString();
+  console.log("decoded text", text);
+  return JSON.parse(text);
+};
 
 export const packData = <T = any>(data: T) =>
   typeof Buffer === "undefined"
