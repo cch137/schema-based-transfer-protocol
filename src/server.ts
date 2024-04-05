@@ -4,13 +4,9 @@ import { logMessage } from "./utils/console.js";
 import { config as dotenv } from "dotenv";
 
 const unpackData = (array: Buffer) => {
-  const text1 = new TextDecoder().decode(array.reverse().map((v) => ~v & 0xff));
-  const text2 = new TextDecoder("utf-8").decode(
-    new Uint8Array(array).reverse().map((v) => ~v & 0xff)
-  );
-  console.log("decoded text1", text1);
-  console.log("decoded text2", text2);
-  return JSON.parse(text1);
+  const text = new TextDecoder().decode(array.reverse().map((v) => ~v & 0xff));
+  console.log("decoded text1", text);
+  return JSON.parse(text);
 };
 
 export const packData = <T = any>(data: T) =>

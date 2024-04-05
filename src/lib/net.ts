@@ -122,6 +122,7 @@ const handleChunk = (
       prevPayloads.push(_payload);
       return;
     }
+    console.log("raw payload", _payload);
     const payload =
       prevPayloads.length === 0
         ? _payload
