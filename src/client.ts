@@ -12,6 +12,7 @@ class Tracker {
   static readonly UID_KEY = "t";
   static tracker?: Tracker;
   static isBlur = false;
+  static currentHref = "";
 
   static init() {
     window.addEventListener("blur", () => {
@@ -22,14 +23,10 @@ class Tracker {
       Tracker.isBlur = false;
       Tracker.tracker!.record("focus");
     });
-    window.addEventListener("popstate", () => {
-      Tracker.tracker!.recordView();
-    });
     return Tracker.tracker || (Tracker.tracker = new Tracker());
   }
 
   readonly ws: WebSocket;
-  closed: boolean = false;
 
   get uid() {
     return localStorage.getItem(Tracker.UID_KEY) || "";
@@ -44,20 +41,7 @@ class Tracker {
     // const ws = new WebSocket(`ws://localhost:4000/${this.uid}`);
     this.ws = ws;
 
-    ws.addEventListener("open", () => {
-      if (this.closed) return ws.close();
-      // send heartbeats
-      // console.time("heartbeat");
-      const heartbeatInterval = setInterval(() => {
-        if (ws.readyState !== ws.OPEN) {
-          clearInterval(heartbeatInterval);
-          return;
-        }
-        // console.timeEnd("heartbeat");
-        // console.time("heartbeat");
-        ws.send(new Uint8Array([0]));
-      }, 1000);
-    });
+    let hbItv: NodeJS.Timeout;
 
     ws.addEventListener("message", async (ev) => {
       // parse command pack from server
@@ -68,14 +52,16 @@ class Tracker {
       switch (cmd) {
         case "uid": {
           this.uid = data.uid;
+          clearInterval(hbItv);
+          hbItv = setInterval(() => {
+            if (ws.readyState !== ws.OPEN) return clearInterval(hbItv);
+            if (Tracker.currentHref !== location.href) this.recordView();
+            else ws.send(new Uint8Array([0]));
+          }, 1000);
           break;
         }
         case "view": {
           this.recordView();
-          break;
-        }
-        case "close": {
-          ws.close();
           break;
         }
       }
@@ -87,8 +73,6 @@ class Tracker {
     });
 
     ws.addEventListener("close", () => {
-      if (this.closed) return;
-      this.closed = true;
       const itv = setInterval(() => {
         if (Tracker.isBlur) return;
         clearInterval(itv);
@@ -111,6 +95,10 @@ class Tracker {
   }
 
   recordView() {
-    Tracker.tracker!.record("view", { href: location.href });
+    const href = location.href;
+    Tracker.currentHref = href;
+    Tracker.tracker!.record("view", { href });
   }
 }
+
+Tracker.init();
