@@ -70,78 +70,6 @@ const getLength = (buffer: Buffer) => {
   return Number(buffer.readBigUInt64BE(1));
 };
 
-const handleChunk = (
-  options: ServerOpts<true>,
-  socket: net.Socket,
-  chunk: Buffer,
-  prevPayloads: Buffer[]
-) => {
-  socket.setTimeout(options.timeout);
-
-  const { headers, body } = socket.upgraded
-    ? { headers: {}, body: chunk }
-    : paresChunk(chunk);
-
-  if (options.allowHTTP) {
-    if (!socket.upgraded) {
-      if (headers["Upgrade"] !== "websocket") {
-        socket.write("HTTP/1.1 200 OK\r\n\r\nOK", () => socket.end());
-        return;
-      }
-      const wsKey =
-        headers["Sec-WebSocket-Key"] ||
-        headers["Sec-Websocket-Key"] ||
-        headers["sec-websocket-key"];
-      if (!wsKey) return;
-      const accepted = createHash("sha1")
-        .update(wsKey + WS_MAGIC_STRING)
-        .digest("base64");
-      const response = [
-        "HTTP/1.1 101 Switching Protocols",
-        "Connection: Upgrade",
-        "Upgrade: websocket",
-        `Sec-WebSocket-Accept: ${accepted}`,
-        "\r\n",
-      ].join("\r\n");
-      socket.write(response, (err) => {
-        if (err) return;
-        socket.upgraded = true;
-        socket.emit("upgrade", { headers, body });
-      });
-      return;
-    }
-
-    const FIN = (chunk[0] & 0b10000000) === 0b10000000; // is finish?
-    const opcode = chunk[0] & 0b00001111; // operation code
-    const masked = (chunk[1] & 0b10000000) === 0b10000000;
-    const payloadLenght = getLength(chunk.subarray(1));
-    const _payload = masked
-      ? unmask(chunk.subarray(6, 6 + payloadLenght), chunk.subarray(2, 6))
-      : chunk.subarray(6, 6 + payloadLenght);
-    if (!FIN) {
-      prevPayloads.push(_payload);
-      return;
-    }
-    console.log("raw payload", _payload);
-    const payload =
-      prevPayloads.length === 0
-        ? _payload
-        : Buffer.concat([...prevPayloads.splice(0), _payload]);
-    switch (opcode) {
-      case 1:
-        socket.emit("message", payload.toString("utf8"));
-        break;
-      case 2:
-        socket.emit("message", payload);
-        break;
-      default:
-        break;
-    }
-
-    return;
-  }
-};
-
 type ServerOptsExt = {
   timeout: number;
   allowHTTP: boolean;
@@ -169,9 +97,76 @@ function createServer(
     ..._options,
   };
   return net.createServer(options, (socket) => {
-    const payloads: Buffer[] = [];
+    let buffer: Buffer = Buffer.alloc(0);
     socket.setTimeout(options.timeout);
-    socket.on("data", (chunk) => handleChunk(options, socket, chunk, payloads));
+    socket.on("data", (chunk) => {
+      socket.setTimeout(options.timeout);
+
+      const { headers, body } = socket.upgraded
+        ? { headers: {}, body: chunk }
+        : paresChunk(chunk);
+
+      if (options.allowHTTP) {
+        if (!socket.upgraded) {
+          if (headers["Upgrade"] !== "websocket") {
+            socket.write("HTTP/1.1 200 OK\r\n\r\nOK", () => socket.end());
+            return;
+          }
+          const wsKey =
+            headers["Sec-WebSocket-Key"] ||
+            headers["Sec-Websocket-Key"] ||
+            headers["sec-websocket-key"];
+          if (!wsKey) return;
+          const accepted = createHash("sha1")
+            .update(wsKey + WS_MAGIC_STRING)
+            .digest("base64");
+          const response = [
+            "HTTP/1.1 101 Switching Protocols",
+            "Connection: Upgrade",
+            "Upgrade: websocket",
+            `Sec-WebSocket-Accept: ${accepted}`,
+            "\r\n",
+          ].join("\r\n");
+          socket.write(response, (err) => {
+            if (err) return;
+            socket.upgraded = true;
+            socket.emit("upgrade", { headers, body });
+          });
+          return;
+        }
+
+        buffer = Buffer.concat([buffer, chunk]);
+        while (buffer.length >= 2) {
+          const fin = (buffer[0] & 0x80) === 0x80;
+          const opcode = buffer[0] & 0x0f;
+          let payloadLength = buffer[1] & 0x7f;
+          let payloadStart = 2;
+          if (payloadLength === 126) {
+            payloadLength = buffer.readUInt16BE(2);
+            payloadStart = 4;
+          } else if (payloadLength === 127) {
+            payloadLength = buffer.readUInt32BE(2);
+            payloadStart = 6;
+          }
+          if (buffer.length < payloadStart + payloadLength) {
+            break;
+          }
+          const mask = buffer.subarray(payloadStart, payloadStart + 4);
+          const payload = buffer.subarray(
+            payloadStart + 4,
+            payloadStart + 4 + payloadLength
+          );
+          const decodedPayload = Buffer.alloc(payload.length);
+          for (let i = 0; i < payload.length; i++) {
+            decodedPayload[i] = payload[i] ^ mask[i % 4];
+          }
+          socket.emit("message", decodedPayload);
+          buffer = buffer.subarray(payloadStart + 4 + payloadLength);
+        }
+
+        return;
+      }
+    });
     socket.on("timeout", () => socket.end());
     listener!(socket);
   });
