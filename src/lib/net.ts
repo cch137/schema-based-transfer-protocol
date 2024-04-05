@@ -81,6 +81,7 @@ const handleChunk = (
   const { headers, body } = socket.upgraded
     ? { headers: {}, body: chunk }
     : paresChunk(chunk);
+  console.log(headers, body);
 
   if (options.allowHTTP) {
     if (!socket.upgraded) {
