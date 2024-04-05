@@ -3,6 +3,8 @@ import net from "./lib/net.js";
 import { logMessage } from "./utils/console.js";
 import { packData, unpackData } from "./utils/packing.js";
 import { config as dotenv } from "dotenv";
+import tls from "tls";
+import fs from "fs";
 
 const UID_LENGTH = 16;
 const SID_LENGTH = 16;
@@ -116,13 +118,33 @@ const server = net.createServer((socket) => {
   });
 
   socket.on("end", () => {
-    logMessage("client disconnected");
-    if (uid) record("disconn");
-    else db.tracks.deleteMany({ sid });
+    if (uid) {
+      record("disconn");
+      logMessage("client disconnected");
+    } else {
+      db.tracks.deleteMany({ sid });
+    }
   });
 });
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 4000;
 server.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+const options = (() => {
+  try {
+    return {
+      key: fs.readFileSync("key.pem"),
+      cert: fs.readFileSync("cert.pem"),
+    };
+  } catch (e) {
+    console.log("Failed to create tls server");
+  }
+  return {};
+})();
+tls.createServer(options, (socket) => {
+  server.emit("connection", socket);
+});
+
+process.on("uncaughtException", console.error);
