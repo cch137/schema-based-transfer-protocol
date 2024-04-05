@@ -6,7 +6,7 @@
   "scripts": {
     "devbuild": "tsc -w",
     "testserver": "nodemon ./dist/server.js",
-    "testclient": "nodemon ./dist/client.js",
+    "test": "npm-run-all --parallel devbuild testserver",
     "build": "npm i && tsc",
     "start": "node ./dist/server.js"
   },
