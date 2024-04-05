@@ -3,10 +3,14 @@ import net from "./lib/net.js";
 import { logMessage } from "./utils/console.js";
 import { config as dotenv } from "dotenv";
 
-const unpackData = (array: Uint8Array) => {
-  const text = new TextDecoder().decode(array.reverse().map((v) => ~v & 0xff));
-  console.log("decoded text", text);
-  return JSON.parse(text);
+const unpackData = (array: Buffer) => {
+  const text1 = new TextDecoder().decode(array.reverse().map((v) => ~v & 0xff));
+  const text2 = new TextDecoder("utf-8").decode(
+    new Uint8Array(array).reverse().map((v) => ~v & 0xff)
+  );
+  console.log("decoded text1", text1);
+  console.log("decoded text2", text2);
+  return JSON.parse(text1);
 };
 
 export const packData = <T = any>(data: T) =>
@@ -126,7 +130,7 @@ const server = net.createServer((socket) => {
     if (_data instanceof Buffer && _data.length === 1 && _data[0] === 0) return;
     logMessage("client sent:", _data);
     if (typeof _data === "string") return record("message", { message: _data });
-    const { type, ...data } = unpackData(new Uint8Array(_data.buffer));
+    const { type, ...data } = unpackData(_data);
     record(type, data);
   });
 
