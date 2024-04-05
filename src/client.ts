@@ -50,16 +50,16 @@
       switch (cmd) {
         case "uid": {
           setUid(data.uid);
+          break;
+        }
+        case "view": {
+          recordView();
           clearInterval(hbItv);
           hbItv = setInterval(() => {
             if (ws.readyState !== ws.OPEN) return clearInterval(hbItv);
             if (currHref !== location.href) recordView();
             else ws.send(new Uint8Array([0]));
           }, 1000);
-          break;
-        }
-        case "view": {
-          recordView();
           break;
         }
       }
