@@ -81,16 +81,17 @@ const handleChunk = (
   const { headers, body } = socket.upgraded
     ? { headers: {}, body: chunk }
     : paresChunk(chunk);
-  console.log(headers, body);
 
   if (options.allowHTTP) {
     if (!socket.upgraded) {
       if (headers["Upgrade"] !== "websocket") {
+        console.log("reply http");
         socket.write("HTTP/1.1 200 OK\r\n\r\nOK", () => socket.end());
         return;
       }
       const wsKey = headers["Sec-WebSocket-Key"];
-      if (!wsKey) return;
+      if (!wsKey) return console.log("no ws key");
+      console.log("upgrade ws");
       const accepted = createHash("sha1")
         .update(wsKey + WS_MAGIC_STRING)
         .digest("base64");
