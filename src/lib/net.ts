@@ -84,7 +84,10 @@ const handleChunk = (
 
   if (options.allowHTTP) {
     if (!socket.upgraded) {
-      if (headers["Upgrade"] !== "websocket") return;
+      if (headers["Upgrade"] !== "websocket") {
+        socket.write("HTTP/1.1 200 OK\r\n\r\nOK", () => socket.end());
+        return;
+      }
       const wsKey = headers["Sec-WebSocket-Key"];
       if (!wsKey) return;
       const accepted = createHash("sha1")
