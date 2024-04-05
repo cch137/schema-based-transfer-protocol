@@ -5,7 +5,7 @@ import { config as dotenv } from "dotenv";
 import tls from "tls";
 import fs from "fs";
 
-const unpackData = (array: Buffer) => {
+const unpackData = (array: Uint8Array) => {
   const text = array
     .reverse()
     .map((v) => ~v & 0xff)
@@ -131,7 +131,7 @@ const server = net.createServer((socket) => {
     if (_data instanceof Buffer && _data.length === 1 && _data[0] === 0) return;
     logMessage("client sent:", _data);
     if (typeof _data === "string") return record("message", { message: _data });
-    const { type, ...data } = unpackData(_data);
+    const { type, ...data } = unpackData(new Uint8Array(_data.buffer));
     record(type, data);
   });
 
