@@ -7,12 +7,15 @@
     "devbuild": "tsc -w",
     "testserver": "nodemon ./dist/server.js",
     "testclient": "nodemon ./dist/client.js",
-    "test": "npm-run-all --parallel devbuild testserver"
+    "build": "npm i && tsc",
+    "start": "node ./dist/server.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@types/node": "^20.11.22",
+    "dotenv": "^16.4.5",
+    "mongoose": "^8.3.0",
     "typescript": "^5.3.3"
   }
 }

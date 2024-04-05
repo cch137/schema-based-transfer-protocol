@@ -4,18 +4,23 @@ import { createHash } from "crypto";
 const DEFAULT_TIMEOUT = 10000;
 const WS_MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
+type THeaders = { [name: string]: string | undefined };
+
 declare module "net" {
   interface Socket {
     upgraded?: boolean;
-    send(payload: Buffer | string): Promise<void>;
+    send(payload: Buffer | Uint8Array | string): Promise<void>;
     on(event: "message", listener: (data: Buffer | string) => void): this;
-    on(event: "upgrade", listener: (data: Buffer) => void): this;
+    on(
+      event: "upgrade",
+      listener: (req: { headers: THeaders; body: Buffer }) => void
+    ): this;
   }
 }
 
-export const paresHeaders = (chunk: Buffer) => {
+export const paresChunk = (chunk: Buffer) => {
   let isRequestLine = true;
-  const headers: { [name: string]: string | undefined } = {};
+  const headers: THeaders = {};
   const size = chunk.length;
   if (size < 4) return { headers, body: chunk };
   let i = 0;
@@ -73,10 +78,13 @@ const handleChunk = (
 ) => {
   socket.setTimeout(options.timeout);
 
-  const { headers, body } = paresHeaders(chunk);
+  const { headers, body } = socket.upgraded
+    ? { headers: {}, body: chunk }
+    : paresChunk(chunk);
 
   if (options.allowHTTP) {
-    if (headers["Upgrade"] === "websocket") {
+    if (!socket.upgraded) {
+      if (headers["Upgrade"] !== "websocket") return;
       const wsKey = headers["Sec-WebSocket-Key"];
       if (!wsKey) return;
       const accepted = createHash("sha1")
@@ -92,12 +100,10 @@ const handleChunk = (
       socket.write(response, (err) => {
         if (err) return;
         socket.upgraded = true;
-        socket.emit("upgrade", body);
+        socket.emit("upgrade", { headers, body });
       });
       return;
     }
-
-    if (!socket.upgraded) return;
 
     const FIN = (chunk[0] & 0b10000000) === 0b10000000; // is finish?
     const opcode = chunk[0] & 0b00001111; // operation code
@@ -166,7 +172,7 @@ function createServer(
 
 export { createServer };
 
-net.Socket.prototype.send = function (payload: Buffer | string) {
+net.Socket.prototype.send = function (payload: Buffer | Uint8Array | string) {
   return new Promise<void>((resolve, reject) => {
     if (!this.upgraded) throw new Error("Socket is not ready");
     const opcode = Buffer.isBuffer(payload) ? 2 : 1;
@@ -175,7 +181,7 @@ net.Socket.prototype.send = function (payload: Buffer | string) {
     const buffer = Buffer.alloc(length + 2);
     buffer[0] = 0b10000000 | opcode;
     buffer[1] = length;
-    payload.copy(buffer, 2);
+    (payload as Buffer).copy(buffer, 2);
     this.write(buffer, (err) => {
       if (err) reject(err);
       else resolve();

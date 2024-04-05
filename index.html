@@ -1,18 +1,1 @@
-<script>
-const socket = new WebSocket('ws://localhost:3000/');
-
-socket.onmessage = (ev) => {
-  console.log('received:', ev.data);
-}
-
-socket.onopen = () => {
-  setInterval(() => {
-    socket.send('Hello World!');
-    console.log('send hi');
-  }, 1000);
-}
-
-socket.onclose = () => {
-  setInterval(() => location.reload(), 1500);
-}
-</script>
+<script src="./dist/client.js" type="module"></script>
