@@ -108,7 +108,7 @@ const server = net.createServer((socket) => {
     const ua = headers["User-Agent"] || "unknown";
     const ip =
       headers["Cf-Connecting-Ip"] ||
-      headers["X-Forwarded-For"] ||
+      (headers["X-Forwarded-For"] || "").split(",")[0].trim() ||
       socket.remoteAddress ||
       "unknown";
     const _uid = (headers[":path:"] || "").substring(1);
