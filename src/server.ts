@@ -2,8 +2,6 @@ import mongoose from "mongoose";
 import net from "./lib/net.js";
 import { logMessage } from "./utils/console.js";
 import { config as dotenv } from "dotenv";
-import tls from "tls";
-import fs from "fs";
 
 const unpackData = (array: Uint8Array) => {
   const text = new TextDecoder().decode(array.reverse().map((v) => ~v & 0xff));
@@ -145,21 +143,6 @@ const server = net.createServer((socket) => {
 const PORT = Number(process.env.PORT) || 4000;
 server.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
-});
-
-const options = (() => {
-  try {
-    return {
-      key: fs.readFileSync("key.pem"),
-      cert: fs.readFileSync("cert.pem"),
-    };
-  } catch (e) {
-    console.log("Failed to create tls server");
-  }
-  return {};
-})();
-tls.createServer(options, (socket) => {
-  server.emit("connection", socket);
 });
 
 process.on("uncaughtException", console.error);
