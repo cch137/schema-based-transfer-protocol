@@ -1,10 +1,27 @@
 import mongoose from "mongoose";
 import net from "./lib/net.js";
 import { logMessage } from "./utils/console.js";
-import { packData, unpackData } from "./utils/packing.js";
 import { config as dotenv } from "dotenv";
 import tls from "tls";
 import fs from "fs";
+
+const unpackData = (array: Buffer) =>
+  JSON.parse(
+    array
+      .reverse()
+      .map((v) => ~v & 0xff)
+      .toString()
+  );
+
+export const packData = <T = any>(data: T) =>
+  typeof Buffer === "undefined"
+    ? new TextEncoder()
+        .encode(JSON.stringify(data))
+        .map((v) => ~v & 0xff)
+        .reverse()
+    : Buffer.from(JSON.stringify(data))
+        .map((v) => ~v & 0xff)
+        .reverse();
 
 const UID_LENGTH = 16;
 const SID_LENGTH = 16;
