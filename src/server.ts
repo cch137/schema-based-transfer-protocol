@@ -3,11 +3,8 @@ import net from "./lib/net.js";
 import { logMessage } from "./utils/console.js";
 import { config as dotenv } from "dotenv";
 
-const unpackData = (array: Buffer) => {
-  const text = new TextDecoder().decode(array.reverse().map((v) => ~v & 0xff));
-  console.log("decoded text1", text);
-  return JSON.parse(text);
-};
+const unpackData = (array: Buffer) =>
+  JSON.parse(new TextDecoder().decode(array.reverse().map((v) => ~v & 0xff)));
 
 export const packData = <T = any>(data: T) =>
   typeof Buffer === "undefined"
@@ -124,10 +121,17 @@ const server = net.createServer((socket) => {
   socket.on("message", (_data) => {
     // skip heartbeat
     if (_data instanceof Buffer && _data.length === 1 && _data[0] === 0) return;
-    logMessage("client sent:", _data);
-    if (typeof _data === "string") return record("message", { message: _data });
-    const { type, ...data } = unpackData(_data);
-    record(type, data);
+    if (typeof _data === "string") {
+      logMessage("client sent:", _data);
+      return record("message", { message: _data });
+    }
+    try {
+      const { type, ...data } = unpackData(_data);
+      logMessage("client tracked:", type, data);
+      record(type, data);
+    } catch {
+      logMessage("client sent an unusual message:", _data);
+    }
   });
 
   socket.on("end", () => {

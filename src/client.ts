@@ -40,7 +40,8 @@ class Tracker {
 
   constructor() {
     Tracker.tracker = this;
-    const ws = new WebSocket(`ws://localhost:3000/${this.uid}`);
+    const ws = new WebSocket(`wss://space.cch137.link/${this.uid || ""}`);
+    // const ws = new WebSocket(`ws://localhost:4000/${this.uid}`);
     this.ws = ws;
 
     ws.addEventListener("open", () => {
