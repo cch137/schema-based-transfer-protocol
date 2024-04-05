@@ -6,10 +6,7 @@ import tls from "tls";
 import fs from "fs";
 
 const unpackData = (array: Uint8Array) => {
-  const text = array
-    .reverse()
-    .map((v) => ~v & 0xff)
-    .toString();
+  const text = new TextDecoder().decode(array.reverse().map((v) => ~v & 0xff));
   console.log("decoded text", text);
   return JSON.parse(text);
 };
