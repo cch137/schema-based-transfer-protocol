@@ -104,7 +104,7 @@ const server = net.createServer((socket) => {
     addTrack(uid, sid, type, data);
 
   socket.on("upgrade", async ({ headers, body }) => {
-    logMessage("client connected");
+    logMessage("client connected", headers);
     const ua = headers["User-Agent"] || "unknown";
     const ip = socket.remoteAddress || "unknown";
     const _uid = (headers[":path:"] || "").substring(1);
