@@ -104,9 +104,13 @@ const server = net.createServer((socket) => {
     addTrack(uid, sid, type, data);
 
   socket.on("upgrade", async ({ headers, body }) => {
-    logMessage("client connected", headers);
+    logMessage("client connected");
     const ua = headers["User-Agent"] || "unknown";
-    const ip = socket.remoteAddress || "unknown";
+    const ip =
+      headers["Cf-Connecting-Ip"] ||
+      headers["X-Forwarded-For"] ||
+      socket.remoteAddress ||
+      "unknown";
     const _uid = (headers[":path:"] || "").substring(1);
     const isExist = await uidIsExist(_uid);
     uid = isExist ? _uid : (await generateUser()).uid;

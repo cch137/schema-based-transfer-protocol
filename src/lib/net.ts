@@ -113,9 +113,7 @@ function createServer(
             return;
           }
           const wsKey =
-            headers["Sec-WebSocket-Key"] ||
-            headers["Sec-Websocket-Key"] ||
-            headers["sec-websocket-key"];
+            headers["Sec-WebSocket-Key"] || headers["Sec-Websocket-Key"];
           if (!wsKey) return;
           const accepted = createHash("sha1")
             .update(wsKey + WS_MAGIC_STRING)
