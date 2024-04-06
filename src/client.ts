@@ -30,7 +30,7 @@
   const addEventListener = "addEventListener";
   const V_TAG = "1";
   const STORAGE_KEY = "t";
-  const HEARTBEAT_MS = 5000;
+  const HEARTBEAT_MS = 1000;
   const RECONNECT_MS = 1000;
 
   const getUid = () => localStorage.getItem(STORAGE_KEY) || "";
