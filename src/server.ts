@@ -84,10 +84,12 @@ const online = new Map<string, string>();
 const server = createServer(
   {
     httpContent() {
-      return [...online.entries()]
-        .sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0))
-        .map(([key, value]) => `${key}\t${value}`)
-        .join("\n");
+      return (
+        [...online.entries()]
+          .sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0))
+          .map(([key, value]) => `${key}\t${value}`)
+          .join("\n") || "none"
+      );
     },
   },
   (socket) => {
