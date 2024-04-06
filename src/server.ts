@@ -1,7 +1,10 @@
 import mongoose from "mongoose";
-import net from "./lib/net.js";
-import { logMessage } from "./utils/console.js";
-import { config as dotenv } from "dotenv";
+
+import net from "./lib/net";
+import env from "./lib/env";
+import { logMessage } from "./utils/console";
+
+env();
 
 const unpackData = (array: Buffer) =>
   JSON.parse(new TextDecoder().decode(array.reverse().map((v) => ~v & 0xff)));
@@ -20,7 +23,6 @@ const V_TAG = "1";
 const UID_LENGTH = 16;
 const SID_LENGTH = 16;
 
-dotenv();
 mongoose
   .connect(process.env.MONGODB_URI!)
   .then(() => console.log("connected to MongoDB"))
