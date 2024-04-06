@@ -94,7 +94,7 @@ const server = net.createServer((socket) => {
     Tracks.insertOne({ uid, sid, type, t: new Date(), ...data });
   };
 
-  socket.on("upgrade", async ({ headers, body }) => {
+  socket.once("upgrade", async ({ headers, body }) => {
     const [_, vTag, _uid] = (headers[":path:"] || "").split("/");
     if (vTag !== V_TAG) {
       await socket.send(packCommand("v-err"));
