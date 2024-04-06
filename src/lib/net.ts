@@ -6,6 +6,14 @@ const WS_MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 type THeaders = { [name: string]: string | undefined };
 
+type ServerOptsExt = {
+  timeout: number;
+  httpContent: () => string;
+};
+
+export type ServerOpts<Inited extends boolean = false> = net.ServerOpts &
+  (Inited extends true ? ServerOptsExt : Partial<ServerOptsExt>);
+
 declare module "net" {
   interface Socket {
     send(payload: Buffer | Uint8Array | string): Promise<void>;
@@ -65,7 +73,9 @@ const onceSocketData = (
   const { headers, body } = paresChunk(chunk);
 
   if (headers["Upgrade"] !== "websocket") {
-    socket.write("HTTP/1.1 200 OK\r\n\r\nOK", () => socket.end());
+    socket.write(`HTTP/1.1 200 OK\r\n\r\n${options.httpContent()}`, () =>
+      socket.end()
+    );
     return;
   }
 
@@ -97,7 +107,7 @@ const onWebSocketData = (
   socket.setTimeout(options.timeout);
   const buffer = Buffer.concat([socket.buffer, chunk]);
   socket.buffer = buffer;
-  while (buffer.length >= 2) {
+  while (socket.buffer.length >= 2) {
     const fin = (buffer[0] & 0x80) === 0x80;
     const opcode = buffer[0] & 0x0f;
     let payloadLength = buffer[1] & 0x7f;
@@ -126,13 +136,6 @@ const onWebSocketData = (
   }
 };
 
-type ServerOptsExt = {
-  timeout: number;
-};
-
-export type ServerOpts<Inited extends boolean = false> = net.ServerOpts &
-  (Inited extends true ? ServerOptsExt : Partial<ServerOptsExt>);
-
 function createServer(
   connectionListener?: (socket: net.Socket) => void
 ): net.Server;
@@ -148,6 +151,7 @@ function createServer(
   if (typeof listener !== "function") listener = () => {};
   const options: ServerOpts<true> = {
     timeout: DEFAULT_TIMEOUT,
+    httpContent: () => "OK",
     ..._options,
   };
   return new net.Server(options, (socket) => {
