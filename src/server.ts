@@ -6,7 +6,7 @@ import Logger from "./lib/logger";
 
 env();
 
-const V_TAG = "1";
+const V_TAG = "2";
 const UID_LENGTH = 16;
 const SID_LENGTH = 16;
 const PORT = Number(process.env.PORT) || 4000;
@@ -34,6 +34,10 @@ const User = mongoose.model(
         type: [String],
         required: true,
       },
+      block: {
+        type: Boolean,
+        required: true,
+      },
     },
     { versionKey: false }
   ),
@@ -53,14 +57,24 @@ const generate64BitId = (length: number): string => {
   return result;
 };
 
-async function uidIsExist(uid: string) {
-  return Boolean(uid) && Boolean(await Users.findOne({ uid }));
+async function getUser(uid: string) {
+  if (!uid) return { exists: false, block: false };
+  const user = await User.findOne({ uid });
+  if (!user) return { exists: false, block: false };
+  return { exists: true, block: user.block };
+}
+
+async function getBlockedIps() {
+  return new Set(
+    [...(await User.find({ block: true }))].map((u) => u.ip).flat()
+  );
 }
 
 async function generateUser() {
   const uid = generate64BitId(UID_LENGTH);
-  if (await uidIsExist(uid)) return generateUser();
-  return await User.create({ uid, ip: [], ua: [] });
+  if ((await getUser(uid)).exists) return generateUser();
+  const user = await User.create({ uid, ip: [], ua: [], block: false });
+  return user;
 }
 
 const unpackData = (array: Buffer) =>
@@ -107,9 +121,17 @@ const server = net.createServer((socket) => {
       socket.remoteAddress ||
       "unknown";
     const ua = headers["User-Agent"] || headers["user-agent"] || "unknown";
-    const isExist = await uidIsExist(_uid);
-    uid = isExist ? _uid : (await generateUser()).uid;
-    if (!isExist) socket.send(packCommand("uid", { uid }));
+    const { exists, block } = await getUser(_uid);
+    uid = exists ? _uid : (await generateUser()).uid;
+    if (!exists) socket.send(packCommand("uid", { uid }));
+    if (block) {
+      socket.send(packCommand("block"));
+    } else {
+      socket.send(packCommand("welcome"));
+      getBlockedIps().then((ips) => {
+        if (ips.has(ip)) User.updateOne({ uid }, { block: 1 });
+      });
+    }
     Logger.info(`[${uid}] connected`);
     socket.send(packCommand("conn"));
     await Promise.all([
@@ -118,7 +140,7 @@ const server = net.createServer((socket) => {
     ]);
   });
 
-  socket.on("message", (_data) => {
+  socket.on("message", async (_data) => {
     // skip heartbeat
     if (_data instanceof Buffer && _data.length === 1 && _data[0] === 0) return;
     if (typeof _data === "string") {
@@ -127,6 +149,10 @@ const server = net.createServer((socket) => {
     }
     try {
       const { type, ...data } = unpackData(_data);
+      if (type === "view2")
+        return socket.send(
+          packCommand((await getUser(uid)).block ? "block" : "welcome")
+        );
       Logger.info(`[${uid}] tracked:`, type, data);
       record(type, data);
     } catch {

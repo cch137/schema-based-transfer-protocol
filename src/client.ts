@@ -9,6 +9,9 @@
       .reverse();
   };
 
+  const ttxBroadcast = (type: string) =>
+    window.dispatchEvent(new Event(`TTX-${type}`));
+
   const record = (type: string, data: Record<string, any> = {}) => {
     if (ws.readyState !== ws.OPEN) {
       const sending = () => {
@@ -18,6 +21,7 @@
       ws[addEventListener]("open", sending);
       return;
     }
+    ttxBroadcast(type);
     ws.send(packData({ ...data, type }));
   };
 
@@ -28,7 +32,7 @@
   };
 
   const addEventListener = "addEventListener";
-  const V_TAG = "1";
+  const V_TAG = "2";
   const STORAGE_KEY = "t";
   const HEARTBEAT_MS = 1000;
   const RECONNECT_MS = 1000;
@@ -69,6 +73,14 @@
           }, HEARTBEAT_MS);
           break;
         }
+        case "welcome": {
+          ttxBroadcast("welcome");
+          break;
+        }
+        case "block": {
+          ttxBroadcast("block");
+          break;
+        }
         case "v-err": {
           location.reload();
           break;
@@ -88,6 +100,9 @@
 
   window[addEventListener]("blur", () => record("blur"));
   window[addEventListener]("focus", () => record("focus"));
+  window[addEventListener]("TTX-record", ({ data: { type, data } }: any) =>
+    record(type, data)
+  );
 
   createTracker(true);
 })();
