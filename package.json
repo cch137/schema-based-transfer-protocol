@@ -14,7 +14,6 @@
   "license": "ISC",
   "dependencies": {
     "@types/node": "^20.11.22",
-    "dotenv": "^16.4.5",
     "mongoose": "^8.3.0",
     "typescript": "^5.3.3"
   }
