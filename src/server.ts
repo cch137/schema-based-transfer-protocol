@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-import { createServer } from "./lib/net";
+import net from "./lib/net";
 import env from "./lib/env";
 import Logger from "./lib/logger";
 
@@ -79,89 +79,70 @@ const packData = <T = any>(data: T) =>
 const packCommand = (cmd: string, data: { [key: string]: any } = {}) =>
   packData({ cmd, ...data });
 
-const online = new Map<string, string>();
+const server = net.createServer((socket) => {
+  let uid = "";
+  const sid = generate64BitId(SID_LENGTH);
 
-const server = createServer(
-  {
-    httpContent() {
-      return (
-        [...online.entries()]
-          .sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0))
-          .map(([key, value]) => `${key}\t${value}`)
-          .join("\n") || "none"
-      );
-    },
-  },
-  (socket) => {
-    let uid = "",
-      ip = "unknown";
-    const sid = generate64BitId(SID_LENGTH);
+  const record = (
+    type: string = "unknown",
+    data: { [key: string]: any } = {}
+  ) => {
+    delete data.uid;
+    delete data.sid;
+    delete data.type;
+    delete data.t;
+    Tracks.insertOne({ uid, sid, type, t: new Date(), ...data });
+  };
 
-    const record = (
-      type: string = "unknown",
-      data: { [key: string]: any } = {}
-    ) => {
-      delete data.uid;
-      delete data.sid;
-      delete data.type;
-      delete data.t;
-      Tracks.insertOne({ uid, sid, type, t: new Date(), ...data });
-    };
+  socket.on("upgrade", async ({ headers, body }) => {
+    const [_, vTag, _uid] = (headers[":path:"] || "").split("/");
+    if (vTag !== V_TAG) {
+      await socket.send(packCommand("v-err"));
+      socket.end();
+      return;
+    }
+    const ip =
+      headers["Cf-Connecting-Ip"] ||
+      (headers["X-Forwarded-For"] || "").split(",")[0].trim() ||
+      socket.remoteAddress ||
+      "unknown";
+    const ua = headers["User-Agent"] || headers["user-agent"] || "unknown";
+    const isExist = await uidIsExist(_uid);
+    uid = isExist ? _uid : (await generateUser()).uid;
+    if (!isExist) socket.send(packCommand("uid", { uid }));
+    Logger.info(`[${uid}] connected`);
+    socket.send(packCommand("conn"));
+    await Promise.all([
+      record("conn", { ip, ua }),
+      User.updateOne({ uid }, { $addToSet: { ip, ua } }),
+    ]);
+  });
 
-    socket.once("upgrade", async ({ headers, body }) => {
-      const [_, vTag, _uid] = (headers[":path:"] || "").split("/");
-      if (vTag !== V_TAG) {
-        await socket.send(packCommand("v-err"));
-        socket.end();
-        return;
-      }
-      ip =
-        headers["Cf-Connecting-Ip"] ||
-        (headers["X-Forwarded-For"] || "").split(",")[0].trim() ||
-        socket.remoteAddress ||
-        "unknown";
-      const ua = headers["User-Agent"] || headers["user-agent"] || "unknown";
-      const isExist = await uidIsExist(_uid);
-      uid = isExist ? _uid : (await generateUser()).uid;
-      if (!isExist) socket.send(packCommand("uid", { uid }));
-      Logger.info(`[${uid}] connected`);
-      socket.send(packCommand("conn"));
-      online.set(sid, `${uid}\t${ip}`);
-      await Promise.all([
-        record("conn", { ip, ua }),
-        User.updateOne({ uid }, { $addToSet: { ip, ua } }),
-      ]);
-    });
+  socket.on("message", (_data) => {
+    // skip heartbeat
+    if (_data instanceof Buffer && _data.length === 1 && _data[0] === 0) return;
+    if (typeof _data === "string") {
+      Logger.info(`[${uid}] sent:`, _data);
+      return record("message", { message: _data });
+    }
+    try {
+      const { type, ...data } = unpackData(_data);
+      Logger.info(`[${uid}] tracked:`, type, data);
+      record(type, data);
+    } catch {
+      Logger.info(`[${uid}] sent an unusual message:`, _data);
+    }
+  });
 
-    socket.on("message", (_data) => {
-      // skip heartbeat
-      if (_data instanceof Buffer && _data.length === 1 && _data[0] === 0)
-        return;
-      if (typeof _data === "string") {
-        Logger.info(`[${uid}] sent:`, _data);
-        return record("message", { message: _data });
-      }
-      try {
-        const { type, ...data } = unpackData(_data);
-        Logger.info(`[${uid}] tracked:`, type, data);
-        if (type === "view") online.set(sid, `${uid}\t${data?.href}\t${ip}`);
-        record(type, data);
-      } catch {
-        Logger.info(`[${uid}] sent an unusual message:`, _data);
-      }
-    });
-
-    socket.on("end", () => {
-      if (uid) {
-        record("disconn");
-        online.delete(sid);
-        Logger.info(`[${uid}] disconnected`);
-      } else {
-        Tracks.deleteMany({ sid });
-      }
-    });
-  }
-);
+  socket.on("end", () => {
+    if (uid) {
+      record("disconn");
+      Logger.info(`[${uid}] disconnected`);
+    } else {
+      Tracks.deleteMany({ sid });
+    }
+  });
+});
 
 server.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
