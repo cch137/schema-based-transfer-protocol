@@ -24,22 +24,30 @@
   const recordView = () => {
     const href = location.href;
     currHref = href;
-    record("view", { href });
+    record("view", { href, focus: isFocus() });
   };
 
   const addEventListener = "addEventListener";
-  const UID_KEY = "t";
-  const getUid = () => localStorage.getItem(UID_KEY) || "";
-  const setUid = (v: string) => localStorage.setItem(UID_KEY, v);
+  const V_TAG = "1";
+  const STORAGE_KEY = "t";
+  const HEARTBEAT_MS = 5000;
+  const RECONNECT_MS = 1000;
+
+  const getUid = () => localStorage.getItem(STORAGE_KEY) || "";
+  const setUid = (s: string) => localStorage.setItem(STORAGE_KEY, s);
+  const isFocus = () => document.hasFocus();
 
   let currHref = "";
   let ws: WebSocket;
 
-  const createTracker = () => {
-    ws = new WebSocket(`wss://space.cch137.link/${getUid()}`);
-    // const ws = new WebSocket(`ws://localhost:4000/${this.uid}`);
+  const createTracker = (force = false) => {
+    if (!force && !isFocus()) {
+      setTimeout(createTracker, RECONNECT_MS);
+      return;
+    }
 
-    let hbItv: NodeJS.Timeout;
+    ws = new WebSocket(`wss://space.cch137.link/${V_TAG}/${getUid()}`);
+    // ws = new WebSocket(`ws://localhost:4000/${V_TAG}/${getUid()}`);
 
     ws[addEventListener]("message", async (ev) => {
       // parse command pack from server
@@ -52,14 +60,17 @@
           setUid(data.uid);
           break;
         }
-        case "view": {
+        case "conn": {
           recordView();
-          clearInterval(hbItv);
-          hbItv = setInterval(() => {
+          const hbItv: NodeJS.Timeout = setInterval(() => {
             if (ws.readyState !== ws.OPEN) return clearInterval(hbItv);
             if (currHref !== location.href) recordView();
             else ws.send(new Uint8Array([0]));
-          }, 1000);
+          }, HEARTBEAT_MS);
+          break;
+        }
+        case "v-err": {
+          location.reload();
           break;
         }
       }
@@ -71,16 +82,12 @@
     });
 
     ws[addEventListener]("close", () => {
-      const itv = setInterval(() => {
-        if (document.hasFocus()) return;
-        clearInterval(itv);
-        createTracker();
-      }, 1000);
+      setTimeout(createTracker, RECONNECT_MS);
     });
   };
 
   window[addEventListener]("blur", () => record("blur"));
   window[addEventListener]("focus", () => record("focus"));
 
-  createTracker();
+  createTracker(true);
 })();

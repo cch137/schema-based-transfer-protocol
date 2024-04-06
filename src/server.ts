@@ -16,6 +16,7 @@ export const packData = <T = any>(data: T) =>
         .map((v) => ~v & 0xff)
         .reverse();
 
+const V_TAG = "1";
 const UID_LENGTH = 16;
 const SID_LENGTH = 16;
 
@@ -104,18 +105,23 @@ const server = net.createServer((socket) => {
     addTrack(uid, sid, type, data);
 
   socket.on("upgrade", async ({ headers, body }) => {
-    logMessage("client connected");
-    const ua = headers["User-Agent"] || "unknown";
+    const [_, vTag, _uid] = (headers[":path:"] || "").split("/");
+    if (vTag !== V_TAG) {
+      await socket.send(packCommand("v-err"));
+      socket.end();
+      return;
+    }
     const ip =
       headers["Cf-Connecting-Ip"] ||
       (headers["X-Forwarded-For"] || "").split(",")[0].trim() ||
       socket.remoteAddress ||
       "unknown";
-    const _uid = (headers[":path:"] || "").substring(1);
+    const ua = headers["User-Agent"] || headers["user-agent"] || "unknown";
     const isExist = await uidIsExist(_uid);
     uid = isExist ? _uid : (await generateUser()).uid;
     if (!isExist) socket.send(packCommand("uid", { uid }));
-    socket.send(packCommand("view"));
+    logMessage(`[${uid}] connected`);
+    socket.send(packCommand("conn"));
     await Promise.all([
       record("conn", { ip, ua }),
       User.updateOne({ uid }, { $addToSet: { ip, ua } }),
@@ -126,22 +132,22 @@ const server = net.createServer((socket) => {
     // skip heartbeat
     if (_data instanceof Buffer && _data.length === 1 && _data[0] === 0) return;
     if (typeof _data === "string") {
-      logMessage("client sent:", _data);
+      logMessage(`[${uid}] sent:`, _data);
       return record("message", { message: _data });
     }
     try {
       const { type, ...data } = unpackData(_data);
-      logMessage("client tracked:", type, data);
+      logMessage(`[${uid}] tracked:`, type, data);
       record(type, data);
     } catch {
-      logMessage("client sent an unusual message:", _data);
+      logMessage(`[${uid}] sent an unusual message:`, _data);
     }
   });
 
   socket.on("end", () => {
     if (uid) {
       record("disconn");
-      logMessage("client disconnected");
+      logMessage(`[${uid}] disconnected`);
     } else {
       db.tracks.deleteMany({ sid });
     }
