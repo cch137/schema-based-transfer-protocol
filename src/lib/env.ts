@@ -8,7 +8,7 @@ type EnvOptions = {
 // https://www.npmjs.com/package/dotenv
 export default function env({ filename }: EnvOptions = { filename: ".env" }) {
   const filepath = `${process.cwd()}\\${filename}`;
-  if (!fs.existsSync(filepath) && !fs.statSync(filepath).isFile()) return;
+  if (!fs.existsSync(filepath) || !fs.statSync(filepath).isFile()) return;
   const LINE =
     /(?:^|^)\s*(?:export\s+)?([\w.-]+)(?:\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?(?:$|$)/gm;
   const src = fs
