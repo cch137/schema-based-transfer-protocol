@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 import net from "./lib/net";
 import env from "./lib/env";
-import { logMessage } from "./utils/console";
+import Logger from "./lib/logger";
 
 env();
 
@@ -122,7 +122,7 @@ const server = net.createServer((socket) => {
     const isExist = await uidIsExist(_uid);
     uid = isExist ? _uid : (await generateUser()).uid;
     if (!isExist) socket.send(packCommand("uid", { uid }));
-    logMessage(`[${uid}] connected`);
+    Logger.info(`[${uid}] connected`);
     socket.send(packCommand("conn"));
     await Promise.all([
       record("conn", { ip, ua }),
@@ -134,22 +134,22 @@ const server = net.createServer((socket) => {
     // skip heartbeat
     if (_data instanceof Buffer && _data.length === 1 && _data[0] === 0) return;
     if (typeof _data === "string") {
-      logMessage(`[${uid}] sent:`, _data);
+      Logger.info(`[${uid}] sent:`, _data);
       return record("message", { message: _data });
     }
     try {
       const { type, ...data } = unpackData(_data);
-      logMessage(`[${uid}] tracked:`, type, data);
+      Logger.info(`[${uid}] tracked:`, type, data);
       record(type, data);
     } catch {
-      logMessage(`[${uid}] sent an unusual message:`, _data);
+      Logger.info(`[${uid}] sent an unusual message:`, _data);
     }
   });
 
   socket.on("end", () => {
     if (uid) {
       record("disconn");
-      logMessage(`[${uid}] disconnected`);
+      Logger.info(`[${uid}] disconnected`);
     } else {
       db.tracks.deleteMany({ sid });
     }
