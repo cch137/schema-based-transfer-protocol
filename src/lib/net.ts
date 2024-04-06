@@ -175,8 +175,9 @@ export { createServer };
 net.Socket.prototype.send = function (payload: Buffer | Uint8Array | string) {
   return new Promise<void>((resolve, reject) => {
     if (!this.upgraded) throw new Error("Socket is not ready");
-    const opcode = Buffer.isBuffer(payload) ? 2 : 1;
-    payload = Buffer.isBuffer(payload) ? payload : Buffer.from(payload);
+    const isBuffer = Buffer.isBuffer(payload);
+    const opcode = isBuffer ? 2 : 1;
+    payload = isBuffer ? payload : Buffer.from(payload);
     const length = payload.length;
     const buffer = Buffer.alloc(length + 2);
     buffer[0] = 0b10000000 | opcode;
