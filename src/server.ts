@@ -13,7 +13,7 @@ const PORT = Number(process.env.PORT) || 4000;
 
 mongoose
   .connect(process.env.MONGODB_URI!)
-  .then(() => console.log("connected to MongoDB"))
+  .then(async () => console.log("connected to MongoDB"))
   .catch(() => console.error("failed to connect to MongoDB"));
 
 const Tracks = mongoose.connection.collection("tracks");
@@ -61,10 +61,12 @@ const generate64BitId = (length: number): string => {
 };
 
 async function getUser(uid: string) {
-  if (!uid) return { exists: false, block: false };
+  if (!uid) return { isExists: false, isBlocked: false, inWhitelist: false };
   const user = await User.findOne({ uid });
-  if (!user) return { exists: false, block: false };
-  return { exists: true, block: !user.wl && user.block };
+  if (!user) return { isExists: false, isBlocked: false, inWhitelist: false };
+  const { wl: inWhitelist = false, block: _isBlocked = false } = user;
+  const isBlocked = _isBlocked && !inWhitelist;
+  return { isExists: true, isBlocked, inWhitelist };
 }
 
 async function getBlockedIps() {
@@ -75,7 +77,7 @@ async function getBlockedIps() {
 
 async function generateUser() {
   const uid = generate64BitId(UID_LENGTH);
-  if ((await getUser(uid)).exists) return generateUser();
+  if ((await getUser(uid)).isExists) return generateUser();
   const user = await User.create({
     uid,
     ip: [],
@@ -111,7 +113,8 @@ const packCommand = (cmd: string, data: { [key: string]: any } = {}) =>
   packData({ cmd, ...data });
 
 const server = net.createServer((socket) => {
-  let uid = "";
+  let uid = "",
+    inWhitelist = false;
   const sid = generate64BitId(SID_LENGTH);
 
   const record = (
@@ -138,8 +141,13 @@ const server = net.createServer((socket) => {
       socket.remoteAddress ||
       "unknown";
     const ua = headers["User-Agent"] || headers["user-agent"] || "unknown";
-    const { exists: isExists, block: isBlockedUid } = await getUser(_uid);
+    const {
+      isExists,
+      isBlocked,
+      inWhitelist: _inWhitelist,
+    } = await getUser(_uid);
     uid = isExists ? _uid : (await generateUser()).uid;
+    inWhitelist = _inWhitelist;
     if (!isExists) socket.send(packCommand("uid", { uid }));
 
     const isFromLineAppBrowser = /Line\//.test(ua);
@@ -151,7 +159,7 @@ const server = net.createServer((socket) => {
     if (isFromIPhone) socket.send(packCommand("from-iphone"));
     if (isFromIPad) socket.send(packCommand("from-ipad"));
 
-    if (isBlockedUid) {
+    if (isBlocked) {
       socket.send(packCommand("block"));
     } else {
       socket.send(packCommand("welcome"));
@@ -179,17 +187,18 @@ const server = net.createServer((socket) => {
       switch (type) {
         case "view2": {
           return await socket.send(
-            packCommand((await getUser(uid)).block ? "block" : "welcome")
+            packCommand((await getUser(uid)).isBlocked ? "block" : "welcome")
           );
         }
         case "block": {
-          socket.send(packCommand("block"));
+          if (!inWhitelist) socket.send(packCommand("block"));
           blockUser(uid);
           return;
         }
         case "wl": {
           socket.send(packCommand("welcome"));
           whitelistUser(uid);
+          inWhitelist = true;
           return;
         }
         case "known-text-ans": {
@@ -199,7 +208,7 @@ const server = net.createServer((socket) => {
             href: /\/apps\/ncu\/text-ans/,
           });
           if (Boolean(knownTextAns)) return;
-          socket.send(packCommand("block"));
+          if (!inWhitelist) socket.send(packCommand("block"));
           blockUser(uid);
           return;
         }
