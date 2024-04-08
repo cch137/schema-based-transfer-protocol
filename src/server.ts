@@ -77,7 +77,11 @@ async function generateUser() {
 }
 
 async function blockUser(uid: string) {
-  return await User.updateOne({ uid }, { block: 1 });
+  return await User.updateOne({ uid }, { block: true });
+}
+
+async function unblockUser(uid: string) {
+  return await User.updateOne({ uid }, { block: false });
 }
 
 const unpackData = (array: Buffer) =>
@@ -171,6 +175,11 @@ const server = net.createServer((socket) => {
         case "block": {
           socket.send(packCommand("block"));
           blockUser(uid);
+          return;
+        }
+        case "unblock": {
+          socket.send(packCommand("welcome"));
+          unblockUser(uid);
           return;
         }
         case "known-text-ans": {
