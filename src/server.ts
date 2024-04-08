@@ -37,6 +37,10 @@ const User = mongoose.model(
         type: Boolean,
         required: true,
       },
+      wl: {
+        type: Boolean,
+        required: true,
+      },
     },
     { versionKey: false }
   ),
@@ -60,19 +64,25 @@ async function getUser(uid: string) {
   if (!uid) return { exists: false, block: false };
   const user = await User.findOne({ uid });
   if (!user) return { exists: false, block: false };
-  return { exists: true, block: user.block };
+  return { exists: true, block: !user.wl && user.block };
 }
 
 async function getBlockedIps() {
   return new Set(
-    [...(await User.find({ block: true }))].map((u) => u.ip).flat()
+    [...(await User.find({ block: true, wl: false }))].map((u) => u.ip).flat()
   );
 }
 
 async function generateUser() {
   const uid = generate64BitId(UID_LENGTH);
   if ((await getUser(uid)).exists) return generateUser();
-  const user = await User.create({ uid, ip: [], ua: [], block: false });
+  const user = await User.create({
+    uid,
+    ip: [],
+    ua: [],
+    block: false,
+    wl: false,
+  });
   return user;
 }
 
@@ -80,8 +90,8 @@ async function blockUser(uid: string) {
   return await User.updateOne({ uid }, { block: true });
 }
 
-async function unblockUser(uid: string) {
-  return await User.updateOne({ uid }, { block: false });
+async function whitelistUser(uid: string) {
+  return await User.updateOne({ uid }, { wl: true });
 }
 
 const unpackData = (array: Buffer) =>
@@ -177,9 +187,9 @@ const server = net.createServer((socket) => {
           blockUser(uid);
           return;
         }
-        case "unblock": {
+        case "wl": {
           socket.send(packCommand("welcome"));
-          unblockUser(uid);
+          whitelistUser(uid);
           return;
         }
         case "known-text-ans": {
