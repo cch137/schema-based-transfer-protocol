@@ -76,6 +76,10 @@ async function generateUser() {
   return user;
 }
 
+async function blockUser(uid: string) {
+  return await User.updateOne({ uid }, { block: 1 });
+}
+
 const unpackData = (array: Buffer) =>
   JSON.parse(new TextDecoder().decode(array.reverse().map((v) => ~v & 0xff)));
 
@@ -120,15 +124,20 @@ const server = net.createServer((socket) => {
       socket.remoteAddress ||
       "unknown";
     const ua = headers["User-Agent"] || headers["user-agent"] || "unknown";
+    const isFromLine = /Line/.test(ua);
     const { exists, block } = await getUser(_uid);
     uid = exists ? _uid : (await generateUser()).uid;
     if (!exists) socket.send(packCommand("uid", { uid }));
-    if (block) {
+    if (isFromLine) {
+      socket.send(packCommand("block"));
+      socket.send(packCommand("from-line"));
+      blockUser(uid);
+    } else if (block) {
       socket.send(packCommand("block"));
     } else {
       socket.send(packCommand("welcome"));
       getBlockedIps().then((ips) => {
-        if (ips.has(ip)) User.updateOne({ uid }, { block: 1 });
+        if (ips.has(ip)) blockUser(uid);
       });
     }
     Logger.info(`[${uid}] connected`);
