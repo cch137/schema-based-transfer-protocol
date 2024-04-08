@@ -89,11 +89,11 @@ async function generateUser() {
 }
 
 async function blockUser(uid: string) {
-  return await User.updateOne({ uid }, { block: true });
+  return await User.updateOne({ uid }, { $set: { block: true } });
 }
 
 async function whitelistUser(uid: string) {
-  return await User.updateOne({ uid }, { wl: true });
+  return await User.updateOne({ uid }, { $set: { wl: true } });
 }
 
 const unpackData = (array: Buffer) =>
