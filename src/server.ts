@@ -173,6 +173,17 @@ const server = net.createServer((socket) => {
           blockUser(uid);
           return;
         }
+        case "known-text-ans": {
+          const knownTextAns = await Tracks.findOne({
+            uid,
+            type: "view",
+            href: /\/apps\/ncu\/text-ans/,
+          });
+          if (Boolean(knownTextAns)) return;
+          socket.send(packCommand("block"));
+          blockUser(uid);
+          return;
+        }
         default: {
           Logger.info(`[${uid}] tracked:`, type, data);
           record(type, data);
