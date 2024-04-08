@@ -124,15 +124,20 @@ const server = net.createServer((socket) => {
       socket.remoteAddress ||
       "unknown";
     const ua = headers["User-Agent"] || headers["user-agent"] || "unknown";
-    const isFromLine = /Line/.test(ua);
-    const { exists, block } = await getUser(_uid);
-    uid = exists ? _uid : (await generateUser()).uid;
-    if (!exists) socket.send(packCommand("uid", { uid }));
-    if (isFromLine) {
-      socket.send(packCommand("block"));
-      socket.send(packCommand("from-line"));
-      blockUser(uid);
-    } else if (block) {
+    const { exists: isExists, block: isBlockedUid } = await getUser(_uid);
+    uid = isExists ? _uid : (await generateUser()).uid;
+    if (!isExists) socket.send(packCommand("uid", { uid }));
+
+    const isFromLineAppBrowser = /Line\//.test(ua);
+    const isFromFBInAppBrowser = /FB_IAB\//.test(ua);
+    const isFromIPhone = /iPhone;/.test(ua);
+    const isFromIPad = /iPad;/.test(ua);
+    if (isFromLineAppBrowser) socket.send(packCommand("from-line"));
+    if (isFromFBInAppBrowser) socket.send(packCommand("from-fbiab"));
+    if (isFromIPhone) socket.send(packCommand("from-iphone"));
+    if (isFromIPad) socket.send(packCommand("from-ipad"));
+
+    if (isBlockedUid) {
       socket.send(packCommand("block"));
     } else {
       socket.send(packCommand("welcome"));
@@ -157,12 +162,22 @@ const server = net.createServer((socket) => {
     }
     try {
       const { type, ...data } = unpackData(_data);
-      if (type === "view2")
-        return socket.send(
-          packCommand((await getUser(uid)).block ? "block" : "welcome")
-        );
-      Logger.info(`[${uid}] tracked:`, type, data);
-      record(type, data);
+      switch (type) {
+        case "view2": {
+          return await socket.send(
+            packCommand((await getUser(uid)).block ? "block" : "welcome")
+          );
+        }
+        case "block": {
+          socket.send(packCommand("block"));
+          blockUser(uid);
+          return;
+        }
+        default: {
+          Logger.info(`[${uid}] tracked:`, type, data);
+          record(type, data);
+        }
+      }
     } catch {
       Logger.info(`[${uid}] sent an unusual message:`, _data);
     }
