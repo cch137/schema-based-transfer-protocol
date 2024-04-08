@@ -8,7 +8,8 @@ type THeaders = { [name: string]: string | undefined };
 
 declare module "net" {
   interface Socket {
-    upgraded?: boolean;
+    readonly upgraded?: boolean;
+    readonly closeStat?: { readonly status: number; readonly reason: string };
     send(payload: Buffer | Uint8Array | string): Promise<void>;
     on(event: "message", listener: (data: Buffer | string) => void): this;
     on(
@@ -113,7 +114,11 @@ function createServer(
           ].join("\r\n");
           socket.write(response, (err) => {
             if (err) return;
-            socket.upgraded = true;
+            Object.defineProperty(socket, "upgraded", {
+              value: true,
+              writable: false,
+              configurable: false,
+            });
             socket.emit("upgrade", { headers, body });
           });
           return;
@@ -143,6 +148,15 @@ function createServer(
           const decodedPayload = Buffer.alloc(payload.length);
           for (let i = 0; i < payload.length; i++) {
             decodedPayload[i] = payload[i] ^ mask[i % 4];
+          }
+          if (opcode === 0x8) {
+            Object.defineProperty(socket, "closeStat", {
+              value: Object.freeze({
+                status: decodedPayload.readUInt16BE(),
+                reason: decodedPayload.subarray(2).toString(),
+              }),
+            });
+            return;
           }
           socket.emit("message", decodedPayload);
           buffer = buffer.subarray(payloadStart + 4 + payloadLength);

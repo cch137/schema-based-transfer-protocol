@@ -16,7 +16,6 @@ mongoose
   .then(() => console.log("connected to MongoDB"))
   .catch(() => console.error("failed to connect to MongoDB"));
 
-const Users = mongoose.connection.collection("users");
 const Tracks = mongoose.connection.collection("tracks");
 const User = mongoose.model(
   "User",
@@ -160,7 +159,7 @@ const server = net.createServer((socket) => {
     }
   });
 
-  socket.on("end", () => {
+  socket.on("close", () => {
     if (uid) {
       record("disconn");
       Logger.info(`[${uid}] disconnected`);
