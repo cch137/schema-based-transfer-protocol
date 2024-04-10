@@ -6,7 +6,7 @@ import Logger from "./lib/logger";
 
 env();
 
-const V_TAG = "2";
+const V_TAG = "3";
 const UID_LENGTH = 16;
 const SID_LENGTH = 16;
 const PORT = Number(process.env.PORT) || 4000;
