@@ -32,7 +32,7 @@
   };
 
   const addEventListener = "addEventListener";
-  const V_TAG = "2";
+  const V_TAG = "3";
   const STORAGE_KEY = "t";
   const HEARTBEAT_MS = 1000;
   const RECONNECT_MS = 1000;
@@ -58,6 +58,8 @@
       const { cmd, ...data } = unpackData(
         new Uint8Array(await (ev.data as Blob).arrayBuffer())
       ) as { cmd: string; [key: string]: any };
+      if (typeof cmd !== "string") return;
+      ttxBroadcast(cmd);
       // execute command
       switch (cmd) {
         case "uid": {
@@ -71,14 +73,6 @@
             if (currHref !== location.href) recordView();
             else ws.send(new Uint8Array([0]));
           }, HEARTBEAT_MS);
-          break;
-        }
-        case "welcome": {
-          ttxBroadcast("welcome");
-          break;
-        }
-        case "block": {
-          ttxBroadcast("block");
           break;
         }
         case "v-err": {
