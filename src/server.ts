@@ -114,7 +114,8 @@ const packCommand = (cmd: string, data: { [key: string]: any } = {}) =>
 
 const server = net.createServer((socket) => {
   let uid = "",
-    inWhitelist = false;
+    inWhitelist = false,
+    ua = "";
   const sid = generate64BitId(SID_LENGTH);
 
   const record = (
@@ -140,7 +141,7 @@ const server = net.createServer((socket) => {
       (headers["X-Forwarded-For"] || "").split(",")[0].trim() ||
       socket.remoteAddress ||
       "unknown";
-    const ua = headers["User-Agent"] || headers["user-agent"] || "unknown";
+    ua = headers["User-Agent"] || headers["user-agent"] || "unknown";
     const {
       isExists,
       isBlocked,
@@ -149,15 +150,6 @@ const server = net.createServer((socket) => {
     uid = isExists ? _uid : (await generateUser()).uid;
     inWhitelist = _inWhitelist;
     if (!isExists) socket.send(packCommand("uid", { uid }));
-
-    const isFromLineAppBrowser = /Line\//.test(ua);
-    const isFromFBInAppBrowser = /FB_IAB\//.test(ua);
-    const isFromIPhone = /iPhone;/.test(ua);
-    const isFromIPad = /iPad;/.test(ua);
-    if (isFromLineAppBrowser) socket.send(packCommand("from-line"));
-    if (isFromFBInAppBrowser) socket.send(packCommand("from-fbiab"));
-    if (isFromIPhone) socket.send(packCommand("from-iphone"));
-    if (isFromIPad) socket.send(packCommand("from-ipad"));
 
     if (isBlocked) {
       socket.send(packCommand("block"));
@@ -186,9 +178,18 @@ const server = net.createServer((socket) => {
       const { type, ...data } = unpackData(_data);
       switch (type) {
         case "view2": {
-          return await socket.send(
+          const isFromLineAppBrowser = /Line\//.test(ua);
+          const isFromFBInAppBrowser = /FB_IAB\//.test(ua);
+          const isFromIPhone = /iPhone;/.test(ua);
+          const isFromIPad = /iPad;/.test(ua);
+          if (isFromLineAppBrowser) socket.send(packCommand("from-line"));
+          if (isFromFBInAppBrowser) socket.send(packCommand("from-fbiab"));
+          if (isFromIPhone) socket.send(packCommand("from-iphone"));
+          if (isFromIPad) socket.send(packCommand("from-ipad"));
+          socket.send(
             packCommand((await getUser(uid)).isBlocked ? "block" : "welcome")
           );
+          return;
         }
         case "block": {
           if (!inWhitelist) socket.send(packCommand("block"));
