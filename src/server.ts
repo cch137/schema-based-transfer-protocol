@@ -71,7 +71,10 @@ async function getUser(uid: string) {
 
 async function getBlockedIps() {
   return new Set(
-    [...(await User.find({ block: true, wl: false }))].map((u) => u.ip).flat()
+    [...(await User.find({ block: true, wl: false }))]
+      .map((u) => u.ip)
+      .flat()
+      .filter((i) => i !== "140,115,70,10")
   );
 }
 
