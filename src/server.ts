@@ -11,10 +11,27 @@ const UID_LENGTH = 16;
 const SID_LENGTH = 16;
 const PORT = Number(process.env.PORT) || 4000;
 
-mongoose
-  .connect(process.env.MONGODB_URI!)
-  .then(async () => console.log("connected to MongoDB"))
-  .catch(() => console.error("failed to connect to MongoDB"));
+(async () => {
+  try {
+    await new Promise(async (resolve, reject) => {
+      setTimeout(async () => {
+        try {
+          await mongoose.connection.getClient().close(true);
+        } catch {}
+        reject("Timeout");
+      }, 10000);
+      resolve(await mongoose.connect(process.env.MONGODB_URI!));
+    });
+    return console.log("connected to MongoDB");
+  } catch {}
+  try {
+    await mongoose.connect(process.env.MONGODB_URI!, {
+      readPreference: "secondary",
+    });
+    return console.log("connected to MongoDB (secondary node)");
+  } catch {}
+  console.log("failed to connect to MongoDB");
+})();
 
 const Tracks = mongoose.connection.collection("tracks");
 const User = mongoose.model(
@@ -247,4 +264,7 @@ server.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
 
-process.on("uncaughtException", console.error);
+process.on("uncaughtException", (e) => {
+  if (e instanceof Error && e.name === "MongoTopologyClosedError") return;
+  console.error("UncaughtException:", e);
+});
