@@ -195,9 +195,9 @@ const server = net.createServer((socket) => {
           if (isFromFBInAppBrowser) socket.send(packCommand("from-fbiab"));
           if (isFromIPhone) socket.send(packCommand("from-iphone"));
           if (isFromIPad) socket.send(packCommand("from-ipad"));
-          socket.send(
-            packCommand((await getUser(uid)).isBlocked ? "block" : "welcome")
-          );
+          const user = await getUser(uid);
+          if (!user.isExists) return;
+          socket.send(packCommand(user.isBlocked ? "block" : "welcome"));
           return;
         }
         case "block": {
