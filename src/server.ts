@@ -165,7 +165,8 @@ const server = net.createServer((socket) => {
       }
     } catch (e) {
       console.error(e);
-      socket.send(packCommand("error"));
+      await socket.send(packCommand("error"));
+      return socket.end();
     }
 
     Logger.info(`[${uid}] connected`);

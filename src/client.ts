@@ -87,7 +87,6 @@
 
     ws[addEventListener]("error", (ev) => {
       console.error(ev);
-      ttxBroadcast("error");
       ws.close();
     });
 
