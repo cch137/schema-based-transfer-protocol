@@ -50,14 +50,23 @@
       return;
     }
 
-    ws = new WebSocket(`wss://space.cch137.link/${V_TAG}/${getUid()}`);
-    // ws = new WebSocket(`ws://localhost:4000/${V_TAG}/${getUid()}`);
+    // ws = new WebSocket(`wss://space.cch137.link/${V_TAG}/${getUid()}`);
+    ws = new WebSocket(`ws://localhost:4000/${V_TAG}/${getUid()}`);
+
+    ws[addEventListener]("open", () => {
+      const hbItv: NodeJS.Timeout = setInterval(() => {
+        if (ws.readyState !== ws.OPEN) return clearInterval(hbItv);
+        if (currHref !== location.href) recordView();
+        else ws.send(new Uint8Array([0]));
+      }, HEARTBEAT_MS);
+    });
 
     ws[addEventListener]("message", async (ev) => {
       // parse command pack from server
       const { cmd, ...data } = unpackData(
         new Uint8Array(await (ev.data as Blob).arrayBuffer())
       ) as { cmd: string; [key: string]: any };
+      console.log(cmd, data);
       if (typeof cmd !== "string") return;
       ttxBroadcast(cmd);
       // execute command
@@ -68,11 +77,6 @@
         }
         case "conn": {
           recordView();
-          const hbItv: NodeJS.Timeout = setInterval(() => {
-            if (ws.readyState !== ws.OPEN) return clearInterval(hbItv);
-            if (currHref !== location.href) recordView();
-            else ws.send(new Uint8Array([0]));
-          }, HEARTBEAT_MS);
           break;
         }
         case "v-err": {
