@@ -50,8 +50,8 @@
       return;
     }
 
-    // ws = new WebSocket(`wss://space.cch137.link/${V_TAG}/${getUid()}`);
-    ws = new WebSocket(`ws://localhost:4000/${V_TAG}/${getUid()}`);
+    ws = new WebSocket(`wss://space.cch137.link/${V_TAG}/${getUid()}`);
+    // ws = new WebSocket(`ws://localhost:4000/${V_TAG}/${getUid()}`);
 
     ws[addEventListener]("open", () => {
       const hbItv: NodeJS.Timeout = setInterval(() => {
