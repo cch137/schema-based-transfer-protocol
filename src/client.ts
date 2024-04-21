@@ -66,7 +66,6 @@
       const { cmd, ...data } = unpackData(
         new Uint8Array(await (ev.data as Blob).arrayBuffer())
       ) as { cmd: string; [key: string]: any };
-      console.log(cmd, data);
       if (typeof cmd !== "string") return;
       ttxBroadcast(cmd);
       // execute command
@@ -88,6 +87,7 @@
 
     ws[addEventListener]("error", (ev) => {
       console.error(ev);
+      ttxBroadcast("error");
       ws.close();
     });
 
