@@ -145,23 +145,29 @@ const server = net.createServer((socket) => {
       socket.remoteAddress ||
       "unknown";
     ua = headers["User-Agent"] || headers["user-agent"] || "unknown";
-    const {
-      isExists,
-      isBlocked,
-      inWhitelist: _inWhitelist,
-    } = await getUser(_uid);
-    uid = isExists ? _uid : (await generateUser()).uid;
-    inWhitelist = _inWhitelist;
-    if (!isExists) socket.send(packCommand("uid", { uid }));
 
-    if (isBlocked) {
-      socket.send(packCommand("block"));
-    } else {
-      socket.send(packCommand("welcome"));
-      getBlockedIps().then((ips) => {
-        if (ips.has(ip)) blockUser(uid);
-      });
+    try {
+      const {
+        isExists,
+        isBlocked,
+        inWhitelist: _inWhitelist,
+      } = await getUser(_uid);
+      uid = isExists ? _uid : (await generateUser()).uid;
+      inWhitelist = _inWhitelist;
+      if (!isExists) socket.send(packCommand("uid", { uid }));
+      if (isBlocked) {
+        socket.send(packCommand("block"));
+      } else {
+        socket.send(packCommand("welcome"));
+        getBlockedIps().then((ips) => {
+          if (ips.has(ip)) blockUser(uid);
+        });
+      }
+    } catch (e) {
+      console.error(e);
+      socket.send(packCommand("error"));
     }
+
     Logger.info(`[${uid}] connected`);
     socket.send(packCommand("conn"));
     await Promise.all([
