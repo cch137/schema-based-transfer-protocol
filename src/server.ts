@@ -13,15 +13,7 @@ const PORT = Number(process.env.PORT) || 4000;
 
 (async () => {
   try {
-    await new Promise(async (resolve, reject) => {
-      setTimeout(async () => {
-        try {
-          await mongoose.connection.getClient().close(true);
-        } catch {}
-        reject("Timeout");
-      }, 10000);
-      resolve(await mongoose.connect(process.env.MONGODB_URI!));
-    });
+    await mongoose.connect(process.env.MONGODB_URI!);
     return console.log("connected to MongoDB");
   } catch {}
   try {
