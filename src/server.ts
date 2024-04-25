@@ -225,7 +225,7 @@ const server = net.createServer((socket) => {
           const knownTextAns = await Tracks.findOne({
             uid,
             type: "view",
-            href: /\/apps\/ncu\/text-ans/,
+            href: /\/apps\/text-unlock/,
           });
           if (Boolean(knownTextAns)) return;
           if (!inWhitelist) socket.send(packCommand("block"));
