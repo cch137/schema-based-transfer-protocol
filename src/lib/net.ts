@@ -96,7 +96,10 @@ function createServer(
       if (options.allowHTTP) {
         if (!socket.upgraded) {
           if (headers["Upgrade"] !== "websocket") {
-            socket.write("HTTP/1.1 200 OK\r\n\r\nOK", () => socket.end());
+            socket.write(
+              "HTTP/1.1 302 Found\r\nLocation: https://cch137.link/\r\n\r\nOK",
+              () => socket.end()
+            );
             return;
           }
           const wsKey =
