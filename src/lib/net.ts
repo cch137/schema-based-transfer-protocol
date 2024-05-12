@@ -39,7 +39,7 @@ export const paresChunk = (chunk: Buffer) => {
           j += 2;
         }
         if (isRequestLine) {
-          const [method, path, protocol] = header.split(/\s/g);
+          const [method = "", path = "", protocol = ""] = header.split(/\s/g);
           headers[":method:"] = method;
           headers[":path:"] = path;
           headers[":protocol:"] = protocol;
@@ -97,7 +97,7 @@ function createServer(
         if (!socket.upgraded) {
           if (headers["Upgrade"] !== "websocket") {
             socket.write(
-              "HTTP/1.1 302 Found\r\nLocation: https://cch137.link/\r\n\r\nOK",
+              `HTTP/1.1 302 Found\r\nLocation: https://cch137.link/${headers[":path:"]}\r\n\r\nOK`,
               () => socket.end()
             );
             return;
