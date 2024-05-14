@@ -19,7 +19,7 @@ declare module "net" {
   }
 }
 
-export const paresChunk = (chunk: Buffer) => {
+export const parseChunk = (chunk: Buffer) => {
   let isRequestLine = true;
   const headers: THeaders = {};
   const size = chunk.length;
@@ -76,8 +76,10 @@ function createServer(
   _options: ServerOpts<false> | ((socket: net.Socket) => void) = {},
   listener?: (socket: net.Socket) => void
 ) {
-  if (typeof _options === "function") (listener = _options), (_options = {});
-  if (typeof listener !== "function") listener = () => {};
+  if (typeof _options === "function") {
+    listener = _options;
+    _options = {};
+  }
   const options: ServerOpts<true> = {
     timeout: DEFAULT_TIMEOUT,
     allowHTTP: true,
@@ -91,7 +93,7 @@ function createServer(
 
       const { headers, body } = socket.upgraded
         ? { headers: {}, body: chunk }
-        : paresChunk(chunk);
+        : parseChunk(chunk);
 
       if (options.allowHTTP) {
         if (!socket.upgraded) {
@@ -169,7 +171,7 @@ function createServer(
       }
     });
     socket.on("timeout", () => socket.end());
-    listener!(socket);
+    if (listener) listener(socket);
   });
 }
 
