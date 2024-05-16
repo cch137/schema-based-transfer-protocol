@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@cch137/env": "^0.0.1",
     "@types/node": "^20.11.22",
     "mongoose": "^8.3.0",
     "typescript": "^5.3.3"

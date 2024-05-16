@@ -1,7 +1,7 @@
+import env from "@cch137/env";
 import mongoose from "mongoose";
 
 import net from "./lib/net";
-import env from "./lib/env";
 import Logger from "./lib/logger";
 
 env();
